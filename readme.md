@@ -22,6 +22,7 @@ All data is fetched using a DonutSMP stats API and rendered cleanly on-screen.
 Here’s what StatsTagger looks like in action:
 
 <img width="418" height="162" alt="image" src="https://github.com/user-attachments/assets/6403c134-5a0b-4848-9f5b-2fcaec0e946d" /><img width="785" height="238" alt="image" src="https://github.com/user-attachments/assets/005dae60-4d2e-44dc-844f-8ccd257a53e7" />
+<img width="450" height="745" alt="image" src="https://github.com/user-attachments/assets/e0e8d3bf-138a-4d20-b60d-626143056509" />
 
 
 

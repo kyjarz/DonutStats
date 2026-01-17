@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class DonutMoneyFetcher {
     //Api Key Goes Hear
-    private static final String API_KEY = "";
+    private static final String API_KEY = "ec4fb09993064f9bba720bdafdf0cacc";
 
     private final Map<String, Long> moneyCache = new ConcurrentHashMap<>();
     private final Map<String, Long> killsCache = new ConcurrentHashMap<>();

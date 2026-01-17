@@ -2,6 +2,7 @@ package ky.moneytagger;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import ky.moneytagger.config.ModConfig;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 
@@ -15,11 +16,11 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class DonutMoneyFetcher {
-    //Api Key Goes Hear
     private static final String API_KEY = "ec4fb09993064f9bba720bdafdf0cacc";
 
-    private final Map<String, Long> moneyCache = new ConcurrentHashMap<>();
-    private final Map<String, Long> killsCache = new ConcurrentHashMap<>();
+    public record PlayerStats(long money, long kills, long deaths, long shards, long playtime) {}
+
+    private final Map<String, PlayerStats> statsCache = new ConcurrentHashMap<>();
     private final Map<String, Component> componentCache = new ConcurrentHashMap<>();
 
     private final Set<String> pendingRequests = ConcurrentHashMap.newKeySet();
@@ -33,7 +34,7 @@ public class DonutMoneyFetcher {
 
     public void fetchStats(String playerName) {
         if (playerName == null || playerName.isEmpty()) return;
-        if (moneyCache.containsKey(playerName) || failedRequests.contains(playerName) || pendingRequests.contains(playerName)) return;
+        if (statsCache.containsKey(playerName) || failedRequests.contains(playerName) || pendingRequests.contains(playerName)) return;
 
         pendingRequests.add(playerName);
 
@@ -52,14 +53,18 @@ public class DonutMoneyFetcher {
                     if (response.statusCode() == 200) {
                         try {
                             JsonObject json = gson.fromJson(response.body(), JsonObject.class);
-                            JsonObject result = json.getAsJsonObject("result");
+                            JsonObject result = json.has("result") ? json.getAsJsonObject("result") : json;
 
-                            long money = (long) Double.parseDouble(result.get("money").getAsString());
-                            long kills = Long.parseLong(result.get("kills").getAsString());
+                            long money = getLong(result, "money");
+                            long kills = getLong(result, "kills");
+                            long deaths = getLong(result, "deaths");
+                            long shards = getLong(result, "shards"); 
 
-                            moneyCache.put(playerName, money);
-                            killsCache.put(playerName, kills);
-                            updateComponentCache(playerName, money, kills);
+                            long playtime = getLong(result, "playtime");
+
+                            PlayerStats stats = new PlayerStats(money, kills, deaths, shards, playtime);
+                            statsCache.put(playerName, stats);
+                            updateComponentCache(playerName, stats);
                         } catch (Exception e) {
                             failedRequests.add(playerName);
                         }
@@ -74,52 +79,87 @@ public class DonutMoneyFetcher {
                 });
     }
 
-    private void updateComponentCache(String playerName, long money, long kills) {
+    private long getLong(JsonObject json, String member) {
+        if (!json.has(member) || json.get(member).isJsonNull()) return 0;
+        try {
+             return (long) Double.parseDouble(json.get(member).getAsString());
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    public void updateComponentCache(String playerName, PlayerStats stats) {
+        ModConfig.ConfigData config = ModConfig.get();
         Component statsText = Component.empty();
 
         statsText.getSiblings().add(
-            Component.literal(formatMoney(money)).withStyle(ChatFormatting.GREEN)
+            formatStat(config.leftStat, stats).withStyle(config.leftColor)
         );
 
         statsText.getSiblings().add(Component.literal(" "));
 
         statsText.getSiblings().add(
-            Component.literal("☠" + formatMoney(kills).replace("$", "")).withStyle(ChatFormatting.RED)
+            formatStat(config.rightStat, stats).withStyle(config.rightColor)
         );
 
         componentCache.put(playerName, statsText);
+    }
+    
+    public void rebuildCache() {
+        statsCache.forEach(this::updateComponentCache);
+    }
+
+    private net.minecraft.network.chat.MutableComponent formatStat(ModConfig.StatType type, PlayerStats stats) {
+        return switch (type) {
+            case MONEY -> Component.literal(formatCompact(stats.money, "$", true));
+            case KILLS -> Component.literal(formatCompact(stats.kills, "☠", false));
+            case DEATHS -> Component.literal(formatCompact(stats.deaths, "☠", false));
+            case SHARDS -> Component.literal(formatCompact(stats.shards, "⭐", true));
+            case PLAYTIME -> Component.literal(formatPlaytime(stats.playtime));
+        };
+    }
+    
+    private String formatCompact(long value, String icon, boolean useMoneySign) {
+        String formatted;
+        if (value >= 1_000_000_000L) formatted = compact(value / 1_000_000_000.0, "B");
+        else if (value >= 1_000_000L) formatted = compact(value / 1_000_000.0, "M");
+        else if (value >= 1_000L) formatted = compact(value / 1_000.0, "k");
+        else formatted = String.valueOf(value);
+        
+        return icon + formatted;
+    }
+
+    private static String compact(double value, String unit) {
+        String s = String.format("%.1f", value);
+        if (s.endsWith(".0")) s = s.substring(0, s.length() - 2);
+        return s + unit;
+    }
+    
+    private String formatPlaytime(long seconds) {
+        long d = seconds / 86400;
+        long h = (seconds % 86400) / 3600;
+        long m = (seconds % 3600) / 60;
+        long s = seconds % 60;
+        
+        String timeStr;
+        if (d > 0) {
+            timeStr = d + "d " + h + "h";
+        } else if (h > 0) {
+            timeStr = h + "h";
+        } else {
+            timeStr = m + "m " + s + "s";
+        }
+        return "🕒 " + timeStr;
     }
 
     public Component getStatsText(String playerName) {
         return componentCache.get(playerName);
     }
 
-    public Long getMoney(String playerName) {
-        return moneyCache.get(playerName);
-    }
-
-    public Long getKills(String playerName) {
-        return killsCache.get(playerName);
-    }
-
     public void clear() {
-        moneyCache.clear();
-        killsCache.clear();
+        statsCache.clear();
         componentCache.clear();
         pendingRequests.clear();
         failedRequests.clear();
-    }
-
-    public static String formatMoney(long money) {
-        if (money >= 1_000_000_000L) return compact(money / 1_000_000_000.0, "B");
-        if (money >= 1_000_000L)     return compact(money / 1_000_000.0, "M");
-        if (money >= 1_000L)         return compact(money / 1_000.0, "k");
-        return "$" + money;
-    }
-
-    private static String compact(double value, String unit) {
-        String s = String.format("%.1f", value);
-        if (s.endsWith(".0")) s = s.substring(0, s.length() - 2);
-        return "$" + s + unit;
     }
 }

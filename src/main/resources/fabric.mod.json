@@ -1,0 +1,37 @@
+{
+	"schemaVersion": 1,
+	"id": "donutstats",
+	"version": "${version}",
+	"name": "DonutStats",
+	"description": "DonutSMP Stats Viewer",
+	"authors": [
+		"Kyjarz"
+	],
+	"contact": {
+		"sources": "https://github.com/kyjarz/DonutStats"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/moneytagger/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"ky.moneytagger.MoneyTagger"
+		],
+		"client": [
+			"ky.moneytagger.MoneyTaggerClient"
+		]
+	},
+	"mixins": [
+		"moneytagger.mixins.json",
+		{
+			"config": "moneytagger.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.18.4",
+		"minecraft": "~1.21.5",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}

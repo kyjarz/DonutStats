@@ -1,0 +1,13 @@
+{
+	"required": true,
+	"package": "ky.moneytagger.mixin.client",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"NameTagMixin",
+		"PlayerRenderStateMixin",
+		"PlayerRendererMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}
